@@ -66,7 +66,7 @@ Task.noise_insertion_method = '';
 Test_sim_out = Sample_Rollout(Model_perturbed, Task, ReducedController);
 fprintf('Final Quadcopter Position: xQ = %.3f, yQ = %.3f, zQ = %.3f \n',Test_sim_out.x(1:3,end));
 fprintf('Final Quadcopter Velocity: xQ = % .3f, yQ = %.3f, zQ = %.3f \n',Test_sim_out.x(7:9,end));
-% Visualize2(Test_sim_out,Model_perturbed.param);
+Visualize2(Test_sim_out,Model_perturbed.param);
  
 %% Start PI Learning
 % [Todo] Complete PI2_Update implementation, which is called by the
