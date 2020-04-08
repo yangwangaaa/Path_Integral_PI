@@ -73,32 +73,41 @@ fprintf('Final Quadcopter Velocity: xQ = % .3f, yQ = %.3f, zQ = %.3f \n',Test_si
 % function PIs_Learning
 
 % Plotting
-noise_array = [Task.std_noise*2, Task.std_noise, Task.std_noise/2, Task.std_noise/4];
+reuse_array = 0:2:10;
 figure;
-txt = cell(length(noise_array),1);
+txt = cell(length(reuse_array),1);
+cpu_time = [];
+Task.max_iteration_learning = 10;
 
-for i = 1:length(noise_array)
-    Task.std_noise = noise_array(i);
+for i = 1:length(reuse_array)
+    Task.num_reuse = reuse_array(i);
     t_cpu = cputime;
     [LearnedController,AllCost,AllController] = PIs_Learning(Model_perturbed,...
         Task, ReducedController);
     t_cpu = cputime - t_cpu;
-    
+
     % Plotting
+    cpu_time = [cpu_time, t_cpu];
     plot(AllCost); hold on;
-    txt{i}= sprintf('noise = %i', noise_array(i));
-    
+    txt{i}= sprintf('reusing %d rollouts',reuse_array(i));
     
     fprintf('CPU time: %f \n',t_cpu);
     fprintf('The PI2 algorithm took %fs to converge \n\n',t_cpu);
 end
 
-% Plotting
+% Plotting learning curve
 hold off;
-xlabel('PI2 iteration number');
-ylabel('Cost');
 legend(txt);
+xlabel('Itertion number');
+ylabel('Cost');
 title('Quadrotor PI Learning Curve');
+
+% Plotting
+figure;
+plot(reuse_array, cpu_time);
+xlabel('Number of Rollouts');
+ylabel('CPU time');
+title('CPU time vs reused rollouts');
 
 %% Visualization of PI2 final trajectory
 Task.random=[];
