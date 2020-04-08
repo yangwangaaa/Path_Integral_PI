@@ -71,23 +71,50 @@ fprintf('Final Quadcopter Velocity: xQ = % .3f, yQ = %.3f, zQ = %.3f \n',Test_si
 %% Start PI Learning
 % [Todo] Complete PI2_Update implementation, which is called by the
 % function PIs_Learning
-t_cpu = cputime;
-[LearnedController,AllCost,AllController] = PIs_Learning(Model_perturbed,...
-    Task, ReducedController);
-t_cpu = cputime - t_cpu;  
-fprintf('CPU time: %f \n',t_cpu);
-fprintf('The PI2 algorithm took %fs to converge \n\n',t_cpu);
+
+% Plotting
+noise_array = [Task.std_noise*2, Task.std_noise, Task.std_noise/2, Task.std_noise/4];
+figure;
+txt = cell(length(noise_array),1);
+
+for i = 1:length(noise_array)
+    Task.std_noise = noise_array(i);
+    t_cpu = cputime;
+    [LearnedController,AllCost,AllController] = PIs_Learning(Model_perturbed,...
+        Task, ReducedController);
+    t_cpu = cputime - t_cpu;
+    
+    % Plotting
+    plot(AllCost); hold on;
+    txt{i}= sprintf('noise = %i', noise_array(i));
+    
+    
+    fprintf('CPU time: %f \n',t_cpu);
+    fprintf('The PI2 algorithm took %fs to converge \n\n',t_cpu);
+end
+
+% Plotting
+hold off;
+xlabel('PI2 iteration number');
+ylabel('Cost');
+legend(txt);
+title('Quadrotor PI Learning Curve');
 
 %% Visualization of PI2 final trajectory
 Task.random=[];
 Test_sim_out = Sample_Rollout(Model_perturbed, Task, LearnedController);
 fprintf('Final Quadcopter Position: xQ = %.3f, yQ = %.3f, zQ = %.3f \n',Test_sim_out.x(1:3,end));
 fprintf('Final Quadcopter Velocity: xQ = %.3f, yQ = %.3f, zQ = %.3f \n',Test_sim_out.x(7:9,end));
-Visualize2(Test_sim_out,Model_perturbed.param);
+% Visualize2(Test_sim_out,Model_perturbed.param);
 
 %% Cost plot
-figure;
-plot(AllCost);
-xlabel('PI2 iteration number');
-ylabel('Cost');
-title('Quadrotor PI Learning Curve');
+% figure;
+% txt = cell(length(noise_array),1);
+% for i = 1:length(noise_array)
+%     plot(AllCost(i)); hold on;
+%     txt{i}= sprintf('noise = %i', noise_array(i));
+% end
+% hold off;
+% xlabel('PI2 iteration number');
+% ylabel('Cost');
+% title('Quadrotor PI Learning Curve');
