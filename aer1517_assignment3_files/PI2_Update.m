@@ -10,7 +10,7 @@
 %             .max_iteration_learning: maximum number of PI2 iterations
 %             .num_rollouts: Number of rollouts for each batch (incl. repeated ones)
 %             .num_reuse:    Number of solutions kept after each batch rollout
-%             .n_basefct:    Number of base functions for smoothed-time controller
+%             .n_gaussians:  Number of base functions for smoothed-time controller
 %             .std_noise:    standard deviation of exploration noise for PI2
 %
 %       batch_sim_out : a "num_rollouts x 1" struct array which contains
@@ -21,15 +21,15 @@
 %              .x           state trajectory for every rollout
 %              .u           input trajectory for every rollout
 %              .Controller  Controller structure. Contains
-%                             .BaseFnc(t, x): function returns a matrix of 
-%                           dimensions [(num_states+1)*n_basefct, length(t)]
+%                   .BaseFnc(t, x): function returns a matrix of 
+%                           dimensions [(num_states+1)*n_gaussians, length(t)]
 %                           indicating the basis function activation at
 %                           every t in vector-fashion (one vector per
 %                           time-step).
 %                           !!! Output needs to be converted to matrix form using
 %                           the function vec2mat().
-%                             .theta: parameter matrix of dimensions
-%                           [(n_gaussians*num_states+1), num_inputs )]
+%                   .theta: parameter matrix of dimensions
+%                           [(n_gaussians*num_states+1), num_inputs )].
 %              .eps         noise for parameter perturbation, of dimensions
 %                           [(n_gaussians*num_states+1),num_inputs, num_timesteps]. 
 %                           The noise gets reduced automatically as the 
@@ -76,23 +76,30 @@ function delta_theta = PI2_Update(Task, batch_sim_out, batch_cost)
     % Hint: start by extracting the following quantities
 
     % number of control inputs
-    % n_u  = ...;
+    n_u  = size(batch_sim_out(1).eps, 2);
 
     % the total number of parameters per input
-    % n_theta = ...;
+    n_theta = Task.n_gaussian;
 
     % the length of the Upsilone basis function (time-varying basis funciton)
-    % n_gaussian = ...;
+    n_gaussian = Task.n_gaussian;
 
     % number of time steps
-    % n_time = ...;
+    n_time = size(batch_cost, 2);
 
     % number of rollouts per iteration
-    % n_rollouts = ...
+    n_rollouts = Task.num_rollouts;
+    
+    % Number of states
+    n_state = length(Task.start_x);
 
     % the return of rollouts
-    % R = ...;
-
+    R = batch_cost; % n_roll x n_time
+    for a = 1:n_rollouts
+        for b = n_time-1:-1:1
+            R(a,b) = R(a,b) + R(a, b+1);
+        end
+    end
 
     % The exponentiated cost calculation is given 
     % compute the exponentiated cost with the special trick to automatically
@@ -102,17 +109,35 @@ function delta_theta = PI2_Update(Task, batch_sim_out, batch_cost)
     medR = repmat( median(R,1), [n_rollouts 1]);
 
     % \exp(-1/lambda R)
-    expR = exp(-10*(R-minR)./(maxR-minR));
+    expR = exp(-10*(R-minR)./(maxR-minR)); % n_roll x n_time
+    sum_expR = sum(expR, 1); % 1 x n_time
 
     % Computing alpha
-    % alpha = ...;
+    alpha = expR./sum_expR; % n_roll x n_time
 
     % Compute time-averaged parameter vector
     for i = 1:n_u % for each input i
-
-        %...
-        %...
-        %...
+        
+        for s = 1:n_time
+            delta_theta_i_s(:, :, s) = zeros([n_gaussian, n_state+1]); % N x (n_state+1) x n_time
+            for k = 1:n_rollouts
+                x_ = batch_sim_out(k).x;
+                t_ = batch_sim_out(k).t;
+                Y_t_x_vector = batch_sim_out(k).Controller.BaseFnc(t_(s), ones(size(x_(:,s))));
+                Y_t_x = vec2mat(Y_t_x_vector);
+                Y = Y_t_x(:,1);
+                eps = vec2mat(batch_sim_out(k).eps(:,i,s));
+                delta_theta_i_s(:, :, s) = delta_theta_i_s(:, :, s) + ...
+                    alpha(k, s) * (Y*Y')/(Y'*Y) * eps;
+                Y_s(:,s) = Y;
+            end
+        end
+        
+        for j = 1:n_state+1
+            delta_theta_i_j = permute(delta_theta_i_s(:,j,:), [1 3 2]);
+            delta_theta_i(:,j) = sum(delta_theta_i_j.*Y_s, 2) ./ ...
+                                        sum(Y_s, 2);
+        end
 
         %% Conversion back to vector-style
         delta_theta(:,i) = mat2vec(delta_theta_i);

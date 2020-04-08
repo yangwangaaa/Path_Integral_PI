@@ -45,8 +45,8 @@ Task.cost = Cost_Design( Model.param.mQ, Task );
 
 %% Initial controller design
 % [Todo] Fill in your LQR_Design and ILQC_Design from Assignment 1 here
-% [Initial_Controller, Cost_LQR] = ...;
-% [ILQC_Controller, Cost] = ...;
+[Initial_Controller, Cost_LQR] = LQR_Design(Model, Task);
+[ILQC_Controller, Cost] = ILQC_Design(Model,Task,Initial_Controller,@Quad_Simulator);
 
 %% Transform controller from ILQC representation to basis function representation
 % Note: The function 'BaseFcnTrans' transforms the ILQC controller into
@@ -66,7 +66,7 @@ Task.noise_insertion_method = '';
 Test_sim_out = Sample_Rollout(Model_perturbed, Task, ReducedController);
 fprintf('Final Quadcopter Position: xQ = %.3f, yQ = %.3f, zQ = %.3f \n',Test_sim_out.x(1:3,end));
 fprintf('Final Quadcopter Velocity: xQ = % .3f, yQ = %.3f, zQ = %.3f \n',Test_sim_out.x(7:9,end));
-Visualize2(Test_sim_out,Model_perturbed.param);
+% Visualize2(Test_sim_out,Model_perturbed.param);
  
 %% Start PI Learning
 % [Todo] Complete PI2_Update implementation, which is called by the
